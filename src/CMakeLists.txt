@@ -5,6 +5,9 @@ set(SANDBOX_SOURCES
 
 set(SANDBOX_HEADERS
     core/window.h
+	core/Macros.h
+	core/ScopeExit.h
+	renderer/GlHandle.h
 )
 
 add_executable(${PROJECT_NAME}
