@@ -29,6 +29,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     glad::glad
     imgui::imgui
+	stb::stb
     ${SANDBOX_GLM}
 )
 
