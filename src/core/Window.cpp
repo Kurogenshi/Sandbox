@@ -13,54 +13,49 @@
 namespace sandbox {
 namespace {
 
-void glfwErrorCallback(int code, const char* description)
-{
-    std::fprintf(stderr, "[GLFW] error %d : %s\n", code, description);
-}
+    void glfwErrorCallback(int code, const char* description)
+    {
+        std::fprintf(stderr, "[GLFW] error %d : %s\n", code, description);
+    }
 
-void framebufferSizeCallback(GLFWwindow*, int width, int height)
-{
-    glViewport(0, 0, width, height);
-}
+    void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/)
+    {
+        if (id == 131169 || id == 131185 || id == 131218 || id == 131204)
+            return;
 
-void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/)
-{
-    if (id == 131169 || id == 131185 || id == 131218 || id == 131204)
-        return;
+        const char* sourceStr = [source] {
+            switch (source) {
+            case GL_DEBUG_SOURCE_API:             return "API";
+            case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   return "Window System";
+            case GL_DEBUG_SOURCE_SHADER_COMPILER: return "Shader Compiler";
+            case GL_DEBUG_SOURCE_THIRD_PARTY:     return "Third Party";
+            case GL_DEBUG_SOURCE_APPLICATION:     return "Application";
+            default:                              return "Other";
+            }
+            }();
 
-    const char* sourceStr = [source] {
-        switch (source) {
-        case GL_DEBUG_SOURCE_API:             return "API";
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   return "Window System";
-        case GL_DEBUG_SOURCE_SHADER_COMPILER: return "Shader Compiler";
-        case GL_DEBUG_SOURCE_THIRD_PARTY:     return "Third Party";
-        case GL_DEBUG_SOURCE_APPLICATION:     return "Application";
-        default:                              return "Other";
-        }
-        }();
+        const char* typeStr = [type] {
+            switch (type) {
+            case GL_DEBUG_TYPE_ERROR:               return "Error";
+            case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "Deprecated";
+            case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  return "Undefined Behavior";
+            case GL_DEBUG_TYPE_PORTABILITY:         return "Portability";
+            case GL_DEBUG_TYPE_PERFORMANCE:         return "Performance";
+            default:                                return "Other";
+            }
+            }();
 
-    const char* typeStr = [type] {
-        switch (type) {
-        case GL_DEBUG_TYPE_ERROR:               return "Error";
-        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "Deprecated";
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  return "Undefined Behavior";
-        case GL_DEBUG_TYPE_PORTABILITY:         return "Portability";
-        case GL_DEBUG_TYPE_PERFORMANCE:         return "Performance";
-        default:                                return "Other";
-        }
-        }();
+        const char* severityStr = [severity] {
+            switch (severity) {
+            case GL_DEBUG_SEVERITY_HIGH:   return "HIGH";
+            case GL_DEBUG_SEVERITY_MEDIUM: return "medium";
+            case GL_DEBUG_SEVERITY_LOW:    return "low";
+            default:                       return "note";
+            }
+            }();
 
-    const char* severityStr = [severity] {
-        switch (severity) {
-        case GL_DEBUG_SEVERITY_HIGH:   return "HIGH";
-        case GL_DEBUG_SEVERITY_MEDIUM: return "medium";
-        case GL_DEBUG_SEVERITY_LOW:    return "low";
-        default:                       return "note";
-        }
-        }();
-
-    std::fprintf(stderr, "[GL %s] %s / %s (id %u)\n     %s\n", severityStr, sourceStr, typeStr, id, message);
-}
+        std::fprintf(stderr, "[GL %s] %s / %s (id %u)\n     %s\n", severityStr, sourceStr, typeStr, id, message);
+    }
 
 }
 
@@ -87,12 +82,14 @@ Window::Window(const Settings& settings)
         throw std::runtime_error("Failed to create window (requested OpenGL context unavailable?)");
     }
 
+    glfwSetWindowUserPointer(m_handle, this);
+
     m_width = settings.width;
     m_height = settings.height;
 
     glfwMakeContextCurrent(m_handle);
     glfwSwapInterval(settings.vsync ? 1 : 0);
-    glfwSetFramebufferSizeCallback(m_handle, framebufferSizeCallback);
+    glfwSetFramebufferSizeCallback(m_handle, &Window::framebufferSizeCallback);
 
     const int version = gladLoadGL(glfwGetProcAddress);
     if (version == 0)
@@ -149,6 +146,19 @@ void Window::swapBuffers() const
 void Window::pollEvents() const
 {
     glfwPollEvents();
+}
+
+void Window::framebufferSizeCallback(GLFWwindow* handle, int width, int height)
+{
+    Window* self = static_cast<Window*>(glfwGetWindowUserPointer(handle));
+    self->onFramebufferResize(width, height);
+}
+
+void Window::onFramebufferResize(int width, int height)
+{
+    m_width = width;
+    m_height = height;
+    glViewport(0, 0, m_width, m_height);
 }
 
 }

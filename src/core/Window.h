@@ -38,6 +38,9 @@ public:
     [[nodiscard]] GLFWwindow* handle() const noexcept { return m_handle; }
 
 private:
+    static void framebufferSizeCallback(GLFWwindow* handle, int width, int height);
+    void onFramebufferResize(int width, int height);
+
     GLFWwindow* m_handle = nullptr;
     int m_width = 0;
     int m_height = 0;
