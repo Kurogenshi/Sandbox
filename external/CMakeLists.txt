@@ -13,6 +13,8 @@ add_subdirectory(glm EXCLUDE_FROM_ALL)
 
 add_subdirectory(glad)
 
+add_subdirectory(imgui-cmake)
+
 function(sandbox_mark_external directory)
     get_property(targets DIRECTORY "${directory}" PROPERTY BUILDSYSTEM_TARGETS)
     foreach(target IN LISTS targets)

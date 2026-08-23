@@ -3,6 +3,10 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <imgui.h>
+#include <imgui_impl_opengl3.h>
+#include <imgui_impl_glfw.h>
+
 #include <cstdio>
 #include <stdexcept>
 
@@ -113,10 +117,20 @@ Window::Window(const Settings& settings)
 #endif
 
     glViewport(0, 0, m_width, m_height);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(m_handle, true);
+    ImGui_ImplOpenGL3_Init("#version 460 core");
 }
 
 Window::~Window()
 {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     if (m_handle != nullptr)
         glfwDestroyWindow(m_handle);
     glfwTerminate();

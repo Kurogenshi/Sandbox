@@ -1,0 +1,7 @@
+#pragma once
+
+#include <glad/gl.h>
+
+#define IMGUI_IMPL_OPENGL_LOADER_CUSTOM
+#define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+#define IMGUI_DISABLE_OBSOLETE_KEYIO
