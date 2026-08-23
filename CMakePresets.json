@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base-vs",
+      "hidden": true,
+      "architecture": "x64"
+    },
+    {
+      "name": "vs2022",
+      "inherits": "base-vs",
+      "displayName": "Visual Studio 2022 (x64)",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/vs2022"
+    },
+    {
+      "name": "vs2026",
+      "inherits": "base-vs",
+      "displayName": "Visual Studio 2026 (x64)",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build/vs2026"
+    },
+    {
+      "name": "ninja-debug",
+      "displayName": "Ninja Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ninja-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "ninja-asan",
+      "displayName": "Ninja Debug + sanitizers",
+      "inherits": "ninja-debug",
+      "binaryDir": "${sourceDir}/build/ninja-asan",
+      "cacheVariables": { "SANDBOX_SANITIZE": "ON" }
+    },
+    {
+      "name": "ninja-release",
+      "displayName": "Ninja Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ninja-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "vs2022-debug",   "configurePreset": "vs2022", "configuration": "Debug" },
+    { "name": "vs2022-release", "configurePreset": "vs2022", "configuration": "Release" },
+    { "name": "vs2026-debug",   "configurePreset": "vs2026", "configuration": "Debug" },
+    { "name": "vs2026-release", "configurePreset": "vs2026", "configuration": "Release" },
+    { "name": "ninja-debug",    "configurePreset": "ninja-debug" },
+    { "name": "ninja-asan",     "configurePreset": "ninja-asan" },
+    { "name": "ninja-release",  "configurePreset": "ninja-release" }
+  ]
+}

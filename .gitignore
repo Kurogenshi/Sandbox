@@ -1,0 +1,16 @@
+build/
+out/
+bin/
+lib/
+*.user
+CMakeSettings.json
+compile_commands.json
+
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+.cache/
+.idea/
