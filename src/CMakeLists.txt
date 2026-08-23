@@ -1,6 +1,7 @@
 set(SANDBOX_SOURCES
     main.cpp
     core/window.cpp
+	renderer/Shader.cpp
 )
 
 set(SANDBOX_HEADERS
@@ -8,6 +9,7 @@ set(SANDBOX_HEADERS
 	core/Macros.h
 	core/ScopeExit.h
 	renderer/GlHandle.h
+	renderer/Shader.h
 )
 
 add_executable(${PROJECT_NAME}
