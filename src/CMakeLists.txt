@@ -1,8 +1,10 @@
 set(SANDBOX_SOURCES
     main.cpp
+    core/window.cpp
 )
 
 set(SANDBOX_HEADERS
+    core/window.h
 )
 
 add_executable(${PROJECT_NAME}
