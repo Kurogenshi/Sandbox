@@ -58,6 +58,10 @@ namespace sandbox {
         void set(GLint location, const glm::mat3& value) const noexcept;
         void set(GLint location, const glm::mat4& value) const noexcept;
 
+        void setTextureUnit(GLint location, GLint unit) const noexcept;
+
+        void set(GLint location, TextureId) const = delete;
+
         bool reload();
 
     private:

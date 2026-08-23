@@ -242,4 +242,9 @@ namespace sandbox {
         glProgramUniformMatrix4fv(m_id.get(), location, 1, GL_FALSE, glm::value_ptr(value));
     }
 
+    void Shader::setTextureUnit(GLint location, GLint unit) const noexcept
+    {
+        glProgramUniform1i(m_id.get(), location, unit);
+    }
+
 }
