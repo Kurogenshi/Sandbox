@@ -5,8 +5,8 @@ layout (location = 0) out vec4 FragColor;
 layout (location = 0) in vec3 ourColor;
 layout (location = 1) in vec2 ourTexCoord;
 
-layout (binding = 0) uniform sampler2D ourTexture1;
-layout (binding = 1) uniform sampler2D ourTexture2;
+layout (binding = 3) uniform sampler2D ourTexture1;
+layout (binding = 4) uniform sampler2D ourTexture2;
 
 void main()
 {

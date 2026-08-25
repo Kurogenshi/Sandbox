@@ -113,6 +113,9 @@ Window::Window(const Settings& settings)
     }
 #endif
 
+    glEnable(GL_DEPTH_TEST);
+    glCullFace(GL_BACK);
+
     glViewport(0, 0, m_width, m_height);
 
     IMGUI_CHECKVERSION();
