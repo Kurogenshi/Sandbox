@@ -1,6 +1,6 @@
-#include "renderer/Shader.h"
+#include <renderer/Shader.h>
 
-#include "core/ScopeExit.h"
+#include <core/ScopeExit.h>
 
 #include <glad/gl.h>
 
@@ -47,7 +47,7 @@ namespace sandbox {
 
         [[nodiscard]] std::string shaderLog(GLuint shader)
         {
-            GLint length = 0;
+            int length = 0;
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
             if (length <= 1)
                 return "no log available";
@@ -60,7 +60,7 @@ namespace sandbox {
 
         [[nodiscard]] std::string programLog(GLuint program)
         {
-            GLint length = 0;
+            int length = 0;
             glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
             if (length <= 1)
                 return "no log available";
@@ -75,13 +75,13 @@ namespace sandbox {
         {
             const std::string source = readFile(stage.path);
             const char* const sourcePtr = source.c_str();
-            const auto length = static_cast<GLint>(source.size());
+            const auto length = static_cast<int>(source.size());
 
             const GLuint shader = glCreateShader(toGlEnum(stage.stage));
             glShaderSource(shader, 1, &sourcePtr, &length);
             glCompileShader(shader);
 
-            GLint compiled = GL_FALSE;
+            int compiled = GL_FALSE;
             glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
             if (compiled != GL_TRUE)
             {
@@ -114,7 +114,7 @@ namespace sandbox {
     }
 
     Shader::Shader(Shader&& other) noexcept
-        : m_id(std::exchange(other.m_id, ProgramId{})) , m_stages(std::move(other.m_stages)) , m_debugName(std::move(other.m_debugName))
+        : m_id(std::exchange(other.m_id, 0)) , m_stages(std::move(other.m_stages)) , m_debugName(std::move(other.m_debugName))
     {}
 
     Shader& Shader::operator=(Shader&& other) noexcept
@@ -122,7 +122,7 @@ namespace sandbox {
         if (this != &other)
         {
             destroy();
-            m_id = std::exchange(other.m_id, ProgramId{});
+            m_id = std::exchange(other.m_id, 0);
             m_stages = std::move(other.m_stages);
             m_debugName = std::move(other.m_debugName);
         }
@@ -153,7 +153,7 @@ namespace sandbox {
         for (const GLuint shader : compiled)
             glDetachShader(program, shader);
 
-        GLint linked = GL_FALSE;
+        int linked = GL_FALSE;
         glGetProgramiv(program, GL_LINK_STATUS, &linked);
         if (linked != GL_TRUE)
         {
@@ -166,16 +166,13 @@ namespace sandbox {
             glObjectLabel(GL_PROGRAM, program, static_cast<GLsizei>(m_debugName.size()), m_debugName.c_str());
 
         destroy();
-        m_id = ProgramId{ program };
+        m_id = program;
     }
 
     void Shader::destroy() noexcept
     {
-        if (m_id.valid())
-        {
-            glDeleteProgram(m_id.get());
-            m_id = ProgramId{};
-        }
+        glDeleteProgram(m_id);
+        m_id = 0;
     }
 
     bool Shader::reload()
@@ -194,57 +191,57 @@ namespace sandbox {
 
     void Shader::bind() const noexcept
     {
-        glUseProgram(m_id.get());
+        glUseProgram(m_id);
     }
 
-    void Shader::set(GLint location, bool value) const noexcept
+    void Shader::set(int location, bool value) const noexcept
     {
-        glProgramUniform1i(m_id.get(), location, static_cast<GLint>(value));
+        glProgramUniform1i(m_id, location, static_cast<int>(value));
     }
 
-    void Shader::set(GLint location, GLint value) const noexcept
+    void Shader::set(int location, int value) const noexcept
     {
-        glProgramUniform1i(m_id.get(), location, value);
+        glProgramUniform1i(m_id, location, value);
     }
 
-    void Shader::set(GLint location, GLuint value) const noexcept
+    void Shader::set(int location, GLuint value) const noexcept
     {
-        glProgramUniform1ui(m_id.get(), location, value);
+        glProgramUniform1ui(m_id, location, value);
     }
 
-    void Shader::set(GLint location, float value) const noexcept
+    void Shader::set(int location, float value) const noexcept
     {
-        glProgramUniform1f(m_id.get(), location, value);
+        glProgramUniform1f(m_id, location, value);
     }
 
-    void Shader::set(GLint location, const glm::vec2& value) const noexcept
+    void Shader::set(int location, const glm::vec2& value) const noexcept
     {
-        glProgramUniform2fv(m_id.get(), location, 1, glm::value_ptr(value));
+        glProgramUniform2fv(m_id, location, 1, glm::value_ptr(value));
     }
 
-    void Shader::set(GLint location, const glm::vec3& value) const noexcept
+    void Shader::set(int location, const glm::vec3& value) const noexcept
     {
-        glProgramUniform3fv(m_id.get(), location, 1, glm::value_ptr(value));
+        glProgramUniform3fv(m_id, location, 1, glm::value_ptr(value));
     }
 
-    void Shader::set(GLint location, const glm::vec4& value) const noexcept
+    void Shader::set(int location, const glm::vec4& value) const noexcept
     {
-        glProgramUniform4fv(m_id.get(), location, 1, glm::value_ptr(value));
+        glProgramUniform4fv(m_id, location, 1, glm::value_ptr(value));
     }
 
-    void Shader::set(GLint location, const glm::mat3& value) const noexcept
+    void Shader::set(int location, const glm::mat3& value) const noexcept
     {
-        glProgramUniformMatrix3fv(m_id.get(), location, 1, GL_FALSE, glm::value_ptr(value));
+        glProgramUniformMatrix3fv(m_id, location, 1, GL_FALSE, glm::value_ptr(value));
     }
 
-    void Shader::set(GLint location, const glm::mat4& value) const noexcept
+    void Shader::set(int location, const glm::mat4& value) const noexcept
     {
-        glProgramUniformMatrix4fv(m_id.get(), location, 1, GL_FALSE, glm::value_ptr(value));
+        glProgramUniformMatrix4fv(m_id, location, 1, GL_FALSE, glm::value_ptr(value));
     }
 
-    void Shader::setTextureUnit(GLint location, GLint unit) const noexcept
+    void Shader::setTextureUnit(int location, int unit) const noexcept
     {
-        glProgramUniform1i(m_id.get(), location, unit);
+        glProgramUniform1i(m_id, location, unit);
     }
 
 }

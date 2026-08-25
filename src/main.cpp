@@ -1,6 +1,6 @@
 #include <core/Window.h>
-#include <renderer/GlHandle.h>
 #include <renderer/Shader.h>
+#include <renderer/Texture.h>
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
@@ -26,7 +26,7 @@ struct StbDeleter
     void operator()(unsigned char* p) const noexcept { stbi_image_free(p); }
 };
 
-sandbox::TextureId loadTexture(const std::filesystem::path& path, bool flip = false)
+sandbox::Texture loadTexture(const std::filesystem::path& path, bool srgb = true, bool flip = false)
 {
     stbi_set_flip_vertically_on_load(flip);
 
@@ -37,27 +37,13 @@ sandbox::TextureId loadTexture(const std::filesystem::path& path, bool flip = fa
     if (!pixels)
         throw std::runtime_error(std::format("Failed to load {}: {}", path.string(), stbi_failure_reason()));
 
-    GLuint texture = 0;
-    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    sandbox::Texture::Specification spec;
+    spec.width = width;
+    spec.height = height;
+    spec.internalFormat = srgb ? sandbox::Texture::Format::SRGB8_ALPHA8 : sandbox::Texture::Format::RGBA8;
+    spec.name = path.filename().string();
 
-    const GLsizei levels = 1 + static_cast<GLsizei>(std::floor(std::log2(std::max(width, height))));
-
-    glTextureStorage2D(texture, levels, GL_SRGB8_ALPHA8, width, height);
-    glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.get());
-    glGenerateTextureMipmap(texture);
-
-    glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    GLfloat maxAnisotropy = 1.0f;
-    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &maxAnisotropy);
-    glTextureParameterf(texture, GL_TEXTURE_MAX_ANISOTROPY, maxAnisotropy);
-
-    glObjectLabel(GL_TEXTURE, texture, -1, path.filename().string().c_str());
-
-    return sandbox::TextureId{ texture };
+    return sandbox::Texture{ spec, pixels.get() };
 }
 
 int main()
@@ -111,8 +97,8 @@ int main()
         glObjectLabel(GL_BUFFER, vbo, -1, "QuadVBO");
         glObjectLabel(GL_BUFFER, ebo, -1, "QuadEBO");
 
-        sandbox::TextureId texture1 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.jpg");
-        sandbox::TextureId texture2 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.png", true);
+        sandbox::Texture texture1 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.jpg");
+        sandbox::Texture texture2 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.png", true);
 
         while (!window.shouldClose())
         {
@@ -128,8 +114,8 @@ int main()
 
             shader.bind();
 
-            glBindTextureUnit(0, texture1.get());
-            glBindTextureUnit(1, texture2.get());
+            texture1.bind(0);
+            texture2.bind(1);
 
             glBindVertexArray(vao);
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(std::size(indices)), GL_UNSIGNED_INT, nullptr);

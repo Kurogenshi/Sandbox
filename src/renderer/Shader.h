@@ -1,7 +1,5 @@
 #pragma once
 
-#include "renderer/GlHandle.h"
-
 #include <glm/fwd.hpp>
 
 #include <cstdint>
@@ -45,22 +43,19 @@ namespace sandbox {
 
         void bind() const noexcept;
 
-        [[nodiscard]] ProgramId id() const noexcept { return m_id; }
-        [[nodiscard]] bool valid() const noexcept { return m_id.valid(); }
+        [[nodiscard]] uint32_t id() const noexcept { return m_id; }
 
-        void set(GLint location, bool value) const noexcept;
-        void set(GLint location, GLint value) const noexcept;
-        void set(GLint location, GLuint value) const noexcept;
-        void set(GLint location, float value) const noexcept;
-        void set(GLint location, const glm::vec2& value) const noexcept;
-        void set(GLint location, const glm::vec3& value) const noexcept;
-        void set(GLint location, const glm::vec4& value) const noexcept;
-        void set(GLint location, const glm::mat3& value) const noexcept;
-        void set(GLint location, const glm::mat4& value) const noexcept;
+        void set(int location, bool value) const noexcept;
+        void set(int location, int value) const noexcept;
+        void set(int location, GLuint value) const noexcept;
+        void set(int location, float value) const noexcept;
+        void set(int location, const glm::vec2& value) const noexcept;
+        void set(int location, const glm::vec3& value) const noexcept;
+        void set(int location, const glm::vec4& value) const noexcept;
+        void set(int location, const glm::mat3& value) const noexcept;
+        void set(int location, const glm::mat4& value) const noexcept;
 
-        void setTextureUnit(GLint location, GLint unit) const noexcept;
-
-        void set(GLint location, TextureId) const = delete;
+        void setTextureUnit(int location, int unit) const noexcept;
 
         bool reload();
 
@@ -68,7 +63,7 @@ namespace sandbox {
         void build();
         void destroy() noexcept;
 
-        ProgramId m_id{};
+        uint32_t m_id = 0;
         std::vector<Stage> m_stages;
         std::string m_debugName;
     };
