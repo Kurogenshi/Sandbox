@@ -97,8 +97,8 @@ int main()
         glObjectLabel(GL_BUFFER, vbo, -1, "QuadVBO");
         glObjectLabel(GL_BUFFER, ebo, -1, "QuadEBO");
 
-        sandbox::Texture texture1 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.jpg");
-        sandbox::Texture texture2 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.png", true);
+        sandbox::Texture texture1 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.jpg", false);
+        sandbox::Texture texture2 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.png", false, true);
 
         while (!window.shouldClose())
         {

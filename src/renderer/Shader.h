@@ -47,7 +47,7 @@ namespace sandbox {
 
         void set(int location, bool value) const noexcept;
         void set(int location, int value) const noexcept;
-        void set(int location, GLuint value) const noexcept;
+        void set(int location, uint32_t value) const noexcept;
         void set(int location, float value) const noexcept;
         void set(int location, const glm::vec2& value) const noexcept;
         void set(int location, const glm::vec3& value) const noexcept;

@@ -45,7 +45,7 @@ namespace sandbox {
             return std::move(contents).str();
         }
 
-        [[nodiscard]] std::string shaderLog(GLuint shader)
+        [[nodiscard]] std::string shaderLog(uint32_t shader)
         {
             int length = 0;
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
@@ -58,7 +58,7 @@ namespace sandbox {
             return log;
         }
 
-        [[nodiscard]] std::string programLog(GLuint program)
+        [[nodiscard]] std::string programLog(uint32_t program)
         {
             int length = 0;
             glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
@@ -71,13 +71,13 @@ namespace sandbox {
             return log;
         }
 
-        [[nodiscard]] GLuint compileStage(const Shader::Stage& stage)
+        [[nodiscard]] uint32_t compileStage(const Shader::Stage& stage)
         {
             const std::string source = readFile(stage.path);
             const char* const sourcePtr = source.c_str();
             const auto length = static_cast<int>(source.size());
 
-            const GLuint shader = glCreateShader(toGlEnum(stage.stage));
+            const uint32_t shader = glCreateShader(toGlEnum(stage.stage));
             glShaderSource(shader, 1, &sourcePtr, &length);
             glCompileShader(shader);
 
@@ -131,26 +131,26 @@ namespace sandbox {
 
     void Shader::build()
     {
-        std::vector<GLuint> compiled;
+        std::vector<uint32_t> compiled;
         compiled.reserve(m_stages.size());
 
         SANDBOX_SCOPE_EXIT
         {
-            for (const GLuint shader : compiled)
+            for (const uint32_t shader : compiled)
                 glDeleteShader(shader);
         };
 
         for (const Stage& stage : m_stages)
             compiled.push_back(compileStage(stage));
 
-        const GLuint program = glCreateProgram();
+        const uint32_t program = glCreateProgram();
 
-        for (const GLuint shader : compiled)
+        for (const uint32_t shader : compiled)
             glAttachShader(program, shader);
 
         glLinkProgram(program);
 
-        for (const GLuint shader : compiled)
+        for (const uint32_t shader : compiled)
             glDetachShader(program, shader);
 
         int linked = GL_FALSE;
@@ -204,7 +204,7 @@ namespace sandbox {
         glProgramUniform1i(m_id, location, value);
     }
 
-    void Shader::set(int location, GLuint value) const noexcept
+    void Shader::set(int location, uint32_t value) const noexcept
     {
         glProgramUniform1ui(m_id, location, value);
     }
