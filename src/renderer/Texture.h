@@ -93,7 +93,7 @@ public:
 	[[nodiscard]] int width() const noexcept { return m_width; }
 	[[nodiscard]] int height() const noexcept { return m_height; }
 
-	[[nodiscard]] const TextureSpecification& specification() const noexcept { return m_Specification; }
+	[[nodiscard]] const TextureSpecification& specification() const noexcept { return m_specification; }
 
 private:
 	void destroy() noexcept;
@@ -102,7 +102,7 @@ private:
 	int m_width = 0;
 	int m_height = 0;
 
-	TextureSpecification m_Specification;
+	TextureSpecification m_specification;
 };
 
 }

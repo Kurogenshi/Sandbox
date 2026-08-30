@@ -132,7 +132,7 @@ namespace sandbox {
 
     }
 
-    Texture::Texture(const TextureSpecification& spec, const void* pixels) : m_width(spec.width), m_height(spec.height), m_Specification(spec)
+    Texture::Texture(const TextureSpecification& spec, const void* pixels) : m_width(spec.width), m_height(spec.height), m_specification(spec)
 	{
         GLuint texture = 0;
         glCreateTextures(GL_TEXTURE_2D, 1, &texture);
@@ -167,7 +167,7 @@ namespace sandbox {
     }
 
     Texture::Texture(Texture&& other) noexcept
-        : m_id(std::exchange(other.m_id, 0)) , m_width(std::exchange(other.m_width, 0)) , m_height(std::exchange(other.m_height, 0))
+        : m_id(std::exchange(other.m_id, 0)), m_width(std::exchange(other.m_width, 0)), m_height(std::exchange(other.m_height, 0)), m_specification(std::exchange(other.m_specification, {}))
     {}
 
     Texture& Texture::operator=(Texture&& other) noexcept
@@ -178,6 +178,7 @@ namespace sandbox {
             m_id = std::exchange(other.m_id, 0);
             m_width = std::exchange(other.m_width, 0);
             m_height = std::exchange(other.m_height, 0);
+            m_specification = std::exchange(other.m_specification, {});
         }
         return *this;
     }
