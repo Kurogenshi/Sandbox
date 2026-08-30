@@ -132,7 +132,7 @@ namespace sandbox {
 
     }
 
-	Texture::Texture(const Specification& spec, const void* pixels) : m_width(spec.width), m_height(spec.height)
+    Texture::Texture(const TextureSpecification& spec, const void* pixels) : m_width(spec.width), m_height(spec.height), m_Specification(spec)
 	{
         GLuint texture = 0;
         glCreateTextures(GL_TEXTURE_2D, 1, &texture);
@@ -155,8 +155,8 @@ namespace sandbox {
         glTextureParameteri(texture, GL_TEXTURE_WRAP_T, static_cast<GLint>(toGl(spec.wrapT)));
         glTextureParameterf(texture, GL_TEXTURE_MAX_ANISOTROPY, maxAnisotropy());
 
-        if (!spec.name.empty())
-            glObjectLabel(GL_TEXTURE, texture, static_cast<GLsizei>(spec.name.size()), spec.name.c_str());
+        //if (!spec.name.empty())
+            //glObjectLabel(GL_TEXTURE, texture, static_cast<GLsizei>(spec.name.size()), spec.name.c_str());
 
         m_id = texture;
 	}

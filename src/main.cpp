@@ -20,6 +20,11 @@
 #include <format>
 #include <stdexcept>
 #include <iterator>
+#include <span>
+#include <cstddef>
+#include <iostream>
+#include <fstream>
+#include <vector>
 #include <filesystem>
 
 struct StbDeleter
@@ -27,24 +32,134 @@ struct StbDeleter
     void operator()(unsigned char* p) const noexcept { stbi_image_free(p); }
 };
 
-sandbox::Texture loadTexture(const std::filesystem::path& path, bool srgb = true, bool flip = false)
+std::vector<std::byte> loadData(const std::filesystem::path& path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+
+    if (!file) {
+        throw std::runtime_error(std::format("Failed to load: {}", path.string()));
+    }
+
+    const std::streamsize size = file.tellg();
+    if (size <= 0) return {};
+
+    file.seekg(0, std::ios::beg);
+
+    std::vector<std::byte> buffer(static_cast<std::vector<std::byte>::size_type>(size));
+
+    file.read(reinterpret_cast<char*>(buffer.data()), size);
+
+    return buffer;
+}
+
+sandbox::Texture loadTexture(std::span<const std::byte> data, std::string_view name, bool srgb = true, bool flip = false)
 {
     stbi_set_flip_vertically_on_load(flip);
 
     int width = 0, height = 0, channels = 0;
 
-    std::unique_ptr<unsigned char, StbDeleter> pixels(stbi_load(path.string().c_str(), &width, &height, &channels, 4));
+    std::unique_ptr<unsigned char, StbDeleter> pixels(stbi_load_from_memory(reinterpret_cast<const unsigned char*>(data.data()), static_cast<int>(data.size_bytes()), &width, &height, &channels, 4));
 
     if (!pixels)
-        throw std::runtime_error(std::format("Failed to load {}: {}", path.string(), stbi_failure_reason()));
+        throw std::runtime_error(std::format("Failed to load {}: {}", name, stbi_failure_reason()));
 
-    sandbox::Texture::Specification spec;
+    sandbox::Texture::TextureSpecification spec;
     spec.width = width;
     spec.height = height;
     spec.internalFormat = srgb ? sandbox::Texture::Format::SRGB8_ALPHA8 : sandbox::Texture::Format::RGBA8;
-    spec.name = path.filename().string();
+    spec.srgb = srgb;
+    spec.flip = flip;
 
     return sandbox::Texture{ spec, pixels.get() };
+}
+
+sandbox::Texture loadTexture(std::span<const std::byte> data, const sandbox::Texture::TextureSpecification& spec) {
+    stbi_set_flip_vertically_on_load(spec.flip);
+
+    int width = 0, height = 0, channels = 0;
+
+    std::unique_ptr<unsigned char, StbDeleter> pixels(stbi_load_from_memory(reinterpret_cast<const unsigned char*>(data.data()), static_cast<int>(data.size_bytes()), &width, &height, &channels, 4));
+
+    if (!pixels)
+        throw std::runtime_error(std::format("Failed to load: {}", stbi_failure_reason()));
+
+    return sandbox::Texture{ spec, pixels.get() };
+}
+
+enum class ResourceType : uint8_t {
+    Texture = 0,
+    Mesh
+};
+
+struct ResourceHeader {
+    ResourceType type;
+    uint64_t dataSize;
+};
+
+struct MeshSpecification {
+    size_t vertexSize;
+    uint32_t vertexCount;
+    uint32_t indexCount;
+};
+
+struct Vertex {
+    glm::vec3 position;
+    glm::vec3 color;
+    glm::vec2 texCoord;
+};
+
+void exportResource(const std::filesystem::path& path, const sandbox::Texture::TextureSpecification& spec, std::span<const std::byte> data) {
+    std::ofstream file(path, std::ios::binary);
+
+    ResourceHeader header{ ResourceType::Texture, data.size_bytes() };
+
+    file.write(reinterpret_cast<const char*>(&header), sizeof(header));
+    file.write(reinterpret_cast<const char*>(&spec), sizeof(spec));
+    file.write(reinterpret_cast<const char*>(data.data()), data.size_bytes());
+}
+
+void exportResource(const std::filesystem::path& path, const MeshSpecification& spec, std::span<Vertex> vertices, std::span<uint32_t> indices) {
+    std::ofstream file(path, std::ios::binary);
+
+    ResourceHeader header{ ResourceType::Mesh, (vertices.size_bytes() + indices.size_bytes()) };
+
+    file.write(reinterpret_cast<const char*>(&header), sizeof(header));
+    file.write(reinterpret_cast<const char*>(&spec), sizeof(spec));
+    file.write(reinterpret_cast<const char*>(vertices.data()), vertices.size_bytes());
+    file.write(reinterpret_cast<const char*>(indices.data()), indices.size_bytes());
+}
+
+void importResource(const std::filesystem::path& path, sandbox::Texture::TextureSpecification& spec, std::vector<std::byte>& data) {
+    std::ifstream file(path, std::ios::binary);
+
+    if (!file) {
+        std::cerr << std::format("Failed to load: {}\n", path.string());
+        return;
+    }
+
+    ResourceHeader header;
+    file.read(reinterpret_cast<char*>(&header), sizeof(header));
+    file.read(reinterpret_cast<char*>(&spec), sizeof(spec));
+
+    data.resize(header.dataSize);
+    file.read(reinterpret_cast<char*>(data.data()), header.dataSize);
+}
+
+void importResource(const std::filesystem::path& path, MeshSpecification& spec, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
+    std::ifstream file(path, std::ios::binary);
+
+    if (!file) {
+        std::cerr << std::format("Failed to load: {}\n", path.string());
+        return;
+    }
+
+    ResourceHeader header;
+    file.read(reinterpret_cast<char*>(&header), sizeof(header));
+    file.read(reinterpret_cast<char*>(&spec), sizeof(spec));
+
+    vertices.resize(spec.vertexCount);
+    indices.resize(spec.indexCount);
+    file.read(reinterpret_cast<char*>(vertices.data()), spec.vertexCount * spec.vertexSize);
+    file.read(reinterpret_cast<char*>(indices.data()), spec.indexCount * sizeof(uint32_t));
 }
 
 int main()
@@ -57,39 +172,45 @@ int main()
 
         sandbox::Shader shader(std::filesystem::path(SANDBOX_ASSET_DIR) / "shaders/basic.vert", std::filesystem::path(SANDBOX_ASSET_DIR) / "shaders/basic.frag", "BasicShader");
 
-        float vertices[] = {
-            -0.5f, -0.5f,  0.5f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
-             0.5f, -0.5f,  0.5f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
-             0.5f,  0.5f,  0.5f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-            -0.5f,  0.5f,  0.5f,   1.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+        std::vector<Vertex> vertices = {
+            // Front
+            {{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{ 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            {{ 0.5f,  0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
 
-             0.5f, -0.5f, -0.5f,   0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
-            -0.5f, -0.5f, -0.5f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-             0.5f,  0.5f, -0.5f,   0.0f, 1.0f, 0.0f,   0.0f, 1.0f,
+            // Back
+            {{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+            {{-0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+            {{ 0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
 
-            -0.5f, -0.5f, -0.5f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,
-            -0.5f, -0.5f,  0.5f,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f,
-            -0.5f,  0.5f,  0.5f,   0.0f, 0.0f, 1.0f,   1.0f, 1.0f,
-            -0.5f,  0.5f, -0.5f,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f,
+            // Left
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{-0.5f,  0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
 
-             0.5f, -0.5f,  0.5f,   1.0f, 1.0f, 0.0f,   0.0f, 0.0f,
-             0.5f, -0.5f, -0.5f,   1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-             0.5f,  0.5f, -0.5f,   1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-             0.5f,  0.5f,  0.5f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f,
+            // Right
+            {{ 0.5f, -0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{ 0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+            {{ 0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+            {{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
 
-            -0.5f, -0.5f, -0.5f,   0.0f, 1.0f, 1.0f,   0.0f, 0.0f,
-             0.5f, -0.5f, -0.5f,   0.0f, 1.0f, 1.0f,   1.0f, 0.0f,
-             0.5f, -0.5f,  0.5f,   0.0f, 1.0f, 1.0f,   1.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f,   0.0f, 1.0f, 1.0f,   0.0f, 1.0f,
+            // Bottom
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+            {{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+            {{ 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
 
-            -0.5f,  0.5f,  0.5f,   1.0f, 0.0f, 1.0f,   0.0f, 0.0f,
-             0.5f,  0.5f,  0.5f,   1.0f, 0.0f, 1.0f,   1.0f, 0.0f,
-             0.5f,  0.5f, -0.5f,   1.0f, 0.0f, 1.0f,   1.0f, 1.0f,
-            -0.5f,  0.5f, -0.5f,   1.0f, 0.0f, 1.0f,   0.0f, 1.0f,
+            // Top
+            {{-0.5f,  0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{ 0.5f,  0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{ 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
         };
 
-        unsigned int indices[] = {
+        std::vector<uint32_t> indices = {
              0,  1,  2,  2,  3,  0,
              4,  5,  6,  6,  7,  4,
              8,  9, 10, 10, 11,  8,
@@ -98,13 +219,18 @@ int main()
             20, 21, 22, 22, 23, 20,
         };
 
+        MeshSpecification meshSpec;
+        meshSpec.vertexSize = sizeof(Vertex);
+        meshSpec.vertexCount = static_cast<uint32_t>(vertices.size());
+        meshSpec.indexCount = static_cast<uint32_t>(indices.size());
+
         GLuint vbo = 0;
         glCreateBuffers(1, &vbo);
-        glNamedBufferStorage(vbo, sizeof(vertices), vertices, 0);
+        glNamedBufferStorage(vbo, vertices.size() * sizeof(Vertex), vertices.data(), 0);
 
         GLuint ebo = 0;
         glCreateBuffers(1, &ebo);
-        glNamedBufferStorage(ebo, sizeof(indices), indices, 0);
+        glNamedBufferStorage(ebo, indices.size() * sizeof(uint32_t), indices.data(), 0);
 
         GLuint vao = 0;
         glCreateVertexArrays(1, &vao);
@@ -128,8 +254,30 @@ int main()
         glObjectLabel(GL_BUFFER, vbo, -1, "QuadVBO");
         glObjectLabel(GL_BUFFER, ebo, -1, "QuadEBO");
 
-        sandbox::Texture texture1 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.jpg", true);
-        sandbox::Texture texture2 = loadTexture(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.png", true, true);
+        std::filesystem::path texturePath1 = std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.jpg";
+        std::filesystem::path texturePath2 = std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.png";
+
+        std::vector<std::byte> textureData1 = loadData(texturePath1);
+        std::vector<std::byte> textureData2 = loadData(texturePath2);
+
+        sandbox::Texture texture1 = loadTexture(textureData1, texturePath1.filename().string(), true);
+        sandbox::Texture texture2 = loadTexture(textureData2, texturePath2.filename().string(), true, true);
+
+        exportResource(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.texture", texture1.specification(), textureData1);
+        exportResource(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.texture", texture2.specification(), textureData2);
+
+        exportResource(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.mesh", meshSpec, vertices, indices);
+
+        sandbox::Texture::TextureSpecification importedTexture1Spec;
+        std::vector<std::byte> importedTexture1Data;
+        importResource(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test.texture", importedTexture1Spec, importedTexture1Data);
+
+        sandbox::Texture::TextureSpecification importedTexture2Spec;
+        std::vector<std::byte> importedTexture2Data;
+        importResource(std::filesystem::path(SANDBOX_ASSET_DIR) / "textures/test2.texture", importedTexture2Spec, importedTexture2Data);
+
+        sandbox::Texture importedTexture1 = loadTexture(importedTexture1Data, importedTexture1Spec);
+        sandbox::Texture importedTexture2 = loadTexture(importedTexture2Data, importedTexture2Spec);
 
         glm::mat4 proj = glm::mat4(1.0f);
 
@@ -167,8 +315,8 @@ int main()
             shader.set(1, view);
             shader.set(2, proj);
 
-            texture1.bind(3);
-            texture2.bind(4);
+            importedTexture1.bind(3);
+            importedTexture2.bind(4);
 
             glBindVertexArray(vao);
             for (unsigned int i = 0; i < 10; i++)

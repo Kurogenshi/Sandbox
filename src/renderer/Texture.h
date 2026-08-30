@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace sandbox {
@@ -29,7 +30,7 @@ public:
 		Count
 	};
 
-	enum class DataType : uint8_t
+	enum class DataType : std::uint8_t
 	{
 		BYTE = 0, UNSIGNED_BYTE,
 		SHORT, UNSIGNED_SHORT,
@@ -39,7 +40,7 @@ public:
 		Count
 	};
 
-	enum class Filter : uint8_t
+	enum class Filter : std::uint8_t
 	{
 		NEAREST = 0, LINEAR,
 		NEAREST_MIPMAP_NEAREST,
@@ -50,7 +51,7 @@ public:
 		Count
 	};
 
-	enum class Wrap : uint8_t
+	enum class Wrap : std::uint8_t
 	{
 		REPEAT = 0,
 		MIRRORED_REPEAT,
@@ -61,7 +62,7 @@ public:
 		Count
 	};
 
-	struct Specification
+	struct TextureSpecification
 	{
 		int width = 0;
 		int height = 0;
@@ -73,11 +74,12 @@ public:
 		Filter magFilter = Filter::LINEAR;
 		Wrap wrapS = Wrap::REPEAT;
 		Wrap wrapT = Wrap::REPEAT;
-		std::string name;
+		bool srgb = false;
+		bool flip = false;
 	};
 
 	Texture() noexcept = default;
-	Texture(const Specification& spec, const void* pixels);
+	Texture(const TextureSpecification& spec, const void* pixels);
 	~Texture();
 
 	Texture(const Texture&) = delete;
@@ -91,12 +93,16 @@ public:
 	[[nodiscard]] int width() const noexcept { return m_width; }
 	[[nodiscard]] int height() const noexcept { return m_height; }
 
+	[[nodiscard]] const TextureSpecification& specification() const noexcept { return m_Specification; }
+
 private:
 	void destroy() noexcept;
 
 	uint32_t m_id = 0;
 	int m_width = 0;
 	int m_height = 0;
+
+	TextureSpecification m_Specification;
 };
 
 }
