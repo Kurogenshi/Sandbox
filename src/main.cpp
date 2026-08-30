@@ -1,6 +1,7 @@
 #include <core/Window.h>
 #include <renderer/Shader.h>
 #include <renderer/Texture.h>
+#include <io/Binary.h>
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
@@ -23,7 +24,6 @@
 #include <span>
 #include <cstddef>
 #include <iostream>
-#include <fstream>
 #include <vector>
 #include <filesystem>
 
@@ -32,23 +32,10 @@ struct StbDeleter
     void operator()(unsigned char* p) const noexcept { stbi_image_free(p); }
 };
 
-std::vector<std::byte> loadData(const std::filesystem::path& path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-
-    if (!file) {
-        throw std::runtime_error(std::format("Failed to load: {}", path.string()));
-    }
-
-    const std::streamsize size = file.tellg();
-    if (size <= 0) return {};
-
-    file.seekg(0, std::ios::beg);
-
-    std::vector<std::byte> buffer(static_cast<std::vector<std::byte>::size_type>(size));
-
-    file.read(reinterpret_cast<char*>(buffer.data()), size);
-
-    return buffer;
+std::vector<std::byte> loadData(const std::filesystem::path& path)
+{
+    sandbox::io::BinaryReader reader(path);
+    return reader.readBytes(reader.remaining());
 }
 
 sandbox::Texture loadTexture(std::span<const std::byte> data, std::string_view name, bool srgb = true, bool flip = false)
@@ -96,9 +83,9 @@ struct ResourceHeader {
 };
 
 struct MeshSpecification {
-    size_t vertexSize;
-    uint32_t vertexCount;
-    uint32_t indexCount;
+    uint64_t vertexSize;
+    uint64_t vertexCount;
+    uint64_t indexCount;
 };
 
 struct Vertex {
@@ -108,58 +95,59 @@ struct Vertex {
 };
 
 void exportResource(const std::filesystem::path& path, const sandbox::Texture::TextureSpecification& spec, std::span<const std::byte> data) {
-    std::ofstream file(path, std::ios::binary);
+    sandbox::io::BinaryWriter writer(path);
 
-    ResourceHeader header{ ResourceType::Texture, data.size_bytes() };
+    ResourceHeader header{};
+    header.type = ResourceType::Texture;
+    header.dataSize = data.size_bytes();
 
-    file.write(reinterpret_cast<const char*>(&header), sizeof(header));
-    file.write(reinterpret_cast<const char*>(&spec), sizeof(spec));
-    file.write(reinterpret_cast<const char*>(data.data()), data.size_bytes());
+    writer.write(header);
+    writer.write(spec);
+    writer.writeBytes(data);
+
+    writer.finish();
 }
 
 void exportResource(const std::filesystem::path& path, const MeshSpecification& spec, std::span<Vertex> vertices, std::span<uint32_t> indices) {
-    std::ofstream file(path, std::ios::binary);
+    sandbox::io::BinaryWriter writer(path);
 
-    ResourceHeader header{ ResourceType::Mesh, (vertices.size_bytes() + indices.size_bytes()) };
+    ResourceHeader header{};
+    header.type = ResourceType::Mesh;
+    header.dataSize = (vertices.size_bytes() + indices.size_bytes());
 
-    file.write(reinterpret_cast<const char*>(&header), sizeof(header));
-    file.write(reinterpret_cast<const char*>(&spec), sizeof(spec));
-    file.write(reinterpret_cast<const char*>(vertices.data()), vertices.size_bytes());
-    file.write(reinterpret_cast<const char*>(indices.data()), indices.size_bytes());
+    writer.write(header);
+    writer.write(spec);
+    writer.writeArray(vertices);
+    writer.writeArray(indices);
+
+    writer.finish();
 }
 
 void importResource(const std::filesystem::path& path, sandbox::Texture::TextureSpecification& spec, std::vector<std::byte>& data) {
-    std::ifstream file(path, std::ios::binary);
+    sandbox::io::BinaryReader reader(path);
 
-    if (!file) {
-        std::cerr << std::format("Failed to load: {}\n", path.string());
-        return;
-    }
+    const auto header = reader.read<ResourceHeader>();
+    if (header.type != ResourceType::Texture)
+        throw std::runtime_error(std::format("{}: not a texture resource", path.string()));
 
-    ResourceHeader header;
-    file.read(reinterpret_cast<char*>(&header), sizeof(header));
-    file.read(reinterpret_cast<char*>(&spec), sizeof(spec));
-
-    data.resize(header.dataSize);
-    file.read(reinterpret_cast<char*>(data.data()), header.dataSize);
+    spec = reader.read<sandbox::Texture::TextureSpecification>();
+    data = reader.readBytes(header.dataSize);
 }
 
 void importResource(const std::filesystem::path& path, MeshSpecification& spec, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
-    std::ifstream file(path, std::ios::binary);
+    sandbox::io::BinaryReader reader(path);
 
-    if (!file) {
-        std::cerr << std::format("Failed to load: {}\n", path.string());
-        return;
-    }
+    const auto header = reader.read<ResourceHeader>();
+    if (header.type != ResourceType::Mesh)
+        throw std::runtime_error(std::format("{}: not a mesh resource", path.string()));
 
-    ResourceHeader header;
-    file.read(reinterpret_cast<char*>(&header), sizeof(header));
-    file.read(reinterpret_cast<char*>(&spec), sizeof(spec));
+    spec = reader.read<MeshSpecification>();
 
-    vertices.resize(spec.vertexCount);
-    indices.resize(spec.indexCount);
-    file.read(reinterpret_cast<char*>(vertices.data()), spec.vertexCount * spec.vertexSize);
-    file.read(reinterpret_cast<char*>(indices.data()), spec.indexCount * sizeof(uint32_t));
+    if (spec.vertexSize != sizeof(Vertex))
+        throw std::runtime_error(std::format("{}: vertex size mismatch, file has {}, code expects {}", path.string(), spec.vertexSize, sizeof(Vertex)));
+
+    vertices = reader.readArray<Vertex>(spec.vertexCount);
+    indices = reader.readArray<std::uint32_t>(spec.indexCount);
 }
 
 int main()
@@ -221,8 +209,8 @@ int main()
 
         MeshSpecification meshSpec;
         meshSpec.vertexSize = sizeof(Vertex);
-        meshSpec.vertexCount = static_cast<uint32_t>(vertices.size());
-        meshSpec.indexCount = static_cast<uint32_t>(indices.size());
+        meshSpec.vertexCount = static_cast<uint64_t>(vertices.size());
+        meshSpec.indexCount = static_cast<uint64_t>(indices.size());
 
         GLuint vbo = 0;
         glCreateBuffers(1, &vbo);
@@ -235,19 +223,19 @@ int main()
         GLuint vao = 0;
         glCreateVertexArrays(1, &vao);
 
-        glVertexArrayVertexBuffer(vao, 0, vbo, 0, 8 * sizeof(float));
+        glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(Vertex));
         glVertexArrayElementBuffer(vao, ebo);
 
         glEnableVertexArrayAttrib(vao, 0);
-        glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, position));
         glVertexArrayAttribBinding(vao, 0, 0);
 
         glEnableVertexArrayAttrib(vao, 1);
-        glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
+        glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, color));
         glVertexArrayAttribBinding(vao, 1, 0);
 
         glEnableVertexArrayAttrib(vao, 2);
-        glVertexArrayAttribFormat(vao, 2, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float));
+        glVertexArrayAttribFormat(vao, 2, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, texCoord));
         glVertexArrayAttribBinding(vao, 2, 0);
 
         glObjectLabel(GL_VERTEX_ARRAY, vao, -1, "QuadVAO");
