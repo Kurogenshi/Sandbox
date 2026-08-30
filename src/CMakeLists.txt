@@ -3,16 +3,20 @@ set(SANDBOX_SOURCES
     core/window.cpp
 	renderer/Shader.cpp
 	renderer/Texture.cpp
+	asset/AssetManager.cpp
 )
 
 set(SANDBOX_HEADERS
     core/window.h
+	core/Singleton.h
 	core/Macros.h
 	core/ScopeExit.h
 	renderer/GlHandle.h
 	renderer/Shader.h
 	renderer/Texture.h
 	io/Binary.h
+	asset/Asset.h
+	asset/AssetManager.h
 )
 
 add_executable(${PROJECT_NAME}
