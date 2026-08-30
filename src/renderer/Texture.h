@@ -3,9 +3,11 @@
 #include <cstdint>
 #include <string>
 
+#include <asset/Asset.h>
+
 namespace sandbox {
 
-class Texture
+class Texture : public Asset
 {
 public:
 	enum class Format : std::uint8_t
@@ -79,7 +81,7 @@ public:
 
 	Texture() noexcept = default;
 	Texture(const TextureSpecification& spec, const void* pixels);
-	~Texture();
+	~Texture() override;
 
 	Texture(const Texture&) = delete;
 	Texture& operator=(const Texture&) = delete;
@@ -93,6 +95,9 @@ public:
 	[[nodiscard]] int height() const noexcept { return m_height; }
 
 	[[nodiscard]] const TextureSpecification& specification() const noexcept { return m_specification; }
+
+	static constexpr AssetType StaticType() noexcept { return AssetType::Texture; }
+	[[nodiscard]] AssetType getType() const noexcept override { return StaticType(); }
 
 private:
 	void destroy() noexcept;
