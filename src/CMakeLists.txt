@@ -12,6 +12,7 @@ set(SANDBOX_HEADERS
 	renderer/GlHandle.h
 	renderer/Shader.h
 	renderer/Texture.h
+	io/Binary.h
 )
 
 add_executable(${PROJECT_NAME}
