@@ -74,7 +74,6 @@ public:
 		Filter magFilter = Filter::LINEAR;
 		Wrap wrapS = Wrap::REPEAT;
 		Wrap wrapT = Wrap::REPEAT;
-		bool srgb = false;
 		bool flip = false;
 	};
 

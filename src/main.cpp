@@ -53,7 +53,6 @@ sandbox::Texture loadTexture(std::span<const std::byte> data, std::string_view n
     spec.width = width;
     spec.height = height;
     spec.internalFormat = srgb ? sandbox::Texture::Format::SRGB8_ALPHA8 : sandbox::Texture::Format::RGBA8;
-    spec.srgb = srgb;
     spec.flip = flip;
 
     return sandbox::Texture{ spec, pixels.get() };
